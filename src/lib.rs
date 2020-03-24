@@ -16,13 +16,14 @@ Amit Patel for a definitive and crystal clear exposition.
 
 !*/
 
+use std::convert::TryFrom;
 use std::fmt::Debug;
 
 use num::Num;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// "Compass" directions on the hex grid.
-enum Dirn {
+pub enum Dirn {
     /// North
     N,
     /// Northwest
@@ -50,7 +51,7 @@ impl std::fmt::Display for DirnError {
 
 impl std::error::Error for DirnError {}
 
-impl std::convert::TryFrom<usize> for Dirn {
+impl TryFrom<usize> for Dirn {
     type Error = DirnError;
     fn try_from(d: usize) -> Result<Self, Self::Error> {
         use Dirn::*;
@@ -70,9 +71,10 @@ impl From<Dirn> for usize {
     }
 }
 
-/// Hex grid location, parameterized by the number type used
-/// for coordinates. This is transparent, but in normal use
-/// there is no need to look at its internals.
+/// Hex grid location in axial coordinates, parameterized by
+/// the number type used for coordinates. This is
+/// transparent, but in normal use there is no need to look
+/// at its internals.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HexCoord<T> {
     pub x: T,
@@ -86,11 +88,36 @@ where
     pub fn new(x: T, z: T) -> Self {
         HexCoord { x, z }
     }
+
+    pub fn neighbor(self, d: Dirn) -> Self {
+        use Dirn::*;
+        match d {
+            N => HexCoord::new(self.x, self.z - num::one()),
+            NW => HexCoord::new(self.x - num::one(), self.z),
+            SW => HexCoord::new(self.x - num::one(), self.z + num::one()),
+            S => HexCoord::new(self.x, self.z + num::one()),
+            SE => HexCoord::new(self.x + num::one(), self.z),
+            NE => HexCoord::new(self.x + num::one(), self.z - num::one()),
+        }
+    }
 }
 
-/// Used internally for various calculations, and exposed in
-/// case it is useful. Note that this coordinate system is
-/// redundant: the coordinate invariant
+#[test]
+fn test_neighbor_axial() {
+    use Dirn::*;
+    let dirns = vec![N, SW, S, SE, NE, N, NW, S];
+    let start = HexCoord::new(0i8, 0i8);
+    let mut cur = start;
+    for d in dirns {
+        cur = cur.neighbor(d);
+    }
+    assert_eq!(cur, start);
+}
+
+/// Hex cube coordinates.This is transparent, but in normal
+/// use there is no need to look at its internals. Note that
+/// this coordinate system is redundant: the coordinate
+/// invariant
 ///
 /// > `x + y + z != 0`
 ///
@@ -111,9 +138,29 @@ where
     }
 }
 
-impl<T: Num + Copy> From<HexCoord<T>> for HexCubeCoord<T> {
+impl<T: Num + Clone> HexCubeCoord<T> {
+    pub fn neighbor(self, d: Dirn) -> Result<Self, CubeInvariantError<T>> {
+        Ok(HexCoord::try_from(self)?.neighbor(d).into())
+    }
+}
+
+#[test]
+fn test_neighbor_cube() {
+    use Dirn::*;
+    let dirns = vec![N, SW, S, SE, NE, N, NW, S];
+    let start = HexCubeCoord::new(0i8, 0i8, 0i8);
+    let mut cur = start;
+    for d in dirns {
+        cur = cur.neighbor(d).unwrap();
+    }
+    assert_eq!(cur, start);
+}
+
+impl<T: Num + Clone> From<HexCoord<T>> for HexCubeCoord<T> {
     fn from(c: HexCoord<T>) -> Self {
-        HexCubeCoord::new(c.x, c.x - c.z, c.z)
+        let cl = c.clone();
+        let y = num::zero::<T>() - cl.x - cl.z;
+        HexCubeCoord::new(c.x, y, c.z)
     }
 }
 
@@ -133,12 +180,13 @@ impl<T: Num + Debug> std::fmt::Display for CubeInvariantError<T> {
 
 impl<T: Num + Debug> std::error::Error for CubeInvariantError<T> {}
 
-impl<T: Num + Copy> std::convert::TryFrom<HexCubeCoord<T>>
+impl<T: Num + Clone> TryFrom<HexCubeCoord<T>>
     for HexCoord<T>
 {
     type Error = CubeInvariantError<T>;
     fn try_from(c: HexCubeCoord<T>) -> Result<Self, Self::Error> {
-        if c.x + c.y + c.z != num::zero() {
+        let cl = c.clone();
+        if cl.x + cl.y + cl.z != num::zero() {
             return Err(CubeInvariantError(c));
         }
         Ok(HexCoord::new(c.x, c.z))
