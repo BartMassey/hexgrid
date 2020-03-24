@@ -1,14 +1,13 @@
 /*!
 
-API for working with a hexagonal grid as commonly used in
-game boards. This crate provides manipulations for hex grid
-coordinates as well as a data structure for hex grid
-storage.
+API for working with hex grid coordinates as commonly used in
+game boards.
 
-This code is currently opinionated: it exposes x-z axial
-coordinates, cube coordinates, and flat-topped
-hexes. Pointy-topped hexes and various other coordinate
-systems should probably be an option: patches welcome.
+This code is currently opinionated: it exposes positive y
+(right-handed coordinates) x-z axial coordinates, cube
+coordinates, and flat-topped hexes. Pointy-topped hexes and
+various other coordinate systems should probably be an
+option: patches welcome.
 
 This crate is almost entirely derived from the excellent
 [discussion](https://www.redblobgames.com/grids/hexagons/)
@@ -21,10 +20,60 @@ use std::fmt::Debug;
 
 use num::Num;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// "Compass" directions on the hex grid.
+enum Dirn {
+    /// North
+    N,
+    /// Northwest
+    NW,
+    /// Southwest
+    SW,
+    /// South
+    S,
+    /// Southeast
+    SE,
+    /// Northeast
+    NE,
+}
+
+/// Error indicating that specified direction coordinate
+/// is out of range.
+#[derive(Debug)]
+pub struct DirnError(usize);
+
+impl std::fmt::Display for DirnError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        writeln!(f, "direction error: {}", self.0)
+    }
+}
+
+impl std::error::Error for DirnError {}
+
+impl std::convert::TryFrom<usize> for Dirn {
+    type Error = DirnError;
+    fn try_from(d: usize) -> Result<Self, Self::Error> {
+        use Dirn::*;
+        const DIRNS: [Dirn; 6] = [
+            N, NW, SW, S, SE, NE,
+        ];
+        if d >= DIRNS.len() {
+            return Err(DirnError(d));
+        }
+        Ok(DIRNS[d])
+    }
+}
+
+impl From<Dirn> for usize {
+    fn from(d: Dirn) -> usize {
+        d as usize
+    }
+}
+
 /// Hex grid location, parameterized by the number type used
 /// for coordinates. This is transparent, but in normal use
 /// there is no need to look at its internals.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HexCoord<T> {
     pub x: T,
     pub z: T,
@@ -46,7 +95,7 @@ where
 /// > `x + y + z != 0`
 ///
 /// will be maintained by code in this crate.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HexCubeCoord<T> {
     pub x: T,
     pub y: T,
@@ -78,7 +127,7 @@ pub struct CubeInvariantError<T>(HexCubeCoord<T>);
 
 impl<T: Num + Debug> std::fmt::Display for CubeInvariantError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(f, "cube invariant violation: {:?}", self)
+        writeln!(f, "cube invariant violation: {:?}", self.0)
     }
 }
 
