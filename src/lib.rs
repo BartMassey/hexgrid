@@ -81,14 +81,12 @@ pub struct HexCoord<T> {
     pub z: T,
 }
 
-impl<T> HexCoord<T>
-where
-    T: Num,
-{
+impl<T: Num> HexCoord<T> {
     pub fn new(x: T, z: T) -> Self {
         HexCoord { x, z }
     }
 
+    /// Coordinate of hex neighboring `self` in direction `d`.
     pub fn neighbor(self, d: Dirn) -> Self {
         use Dirn::*;
         match d {
@@ -99,6 +97,13 @@ where
             SE => HexCoord::new(self.x + num::one(), self.z),
             NE => HexCoord::new(self.x + num::one(), self.z - num::one()),
         }
+    }
+}
+
+impl<T: Num + PartialOrd + Clone> HexCoord<T> {
+    /// "Manhattan distance" from `self` to `b`.
+    pub fn distance(self, b: Self) -> T {
+        HexCubeCoord::distance(self.into(), b.into())
     }
 }
 
@@ -129,16 +134,34 @@ pub struct HexCubeCoord<T> {
     pub z: T,
 }
 
-impl<T> HexCubeCoord<T>
-where
-    T: Num,
-{
+impl<T: Num> HexCubeCoord<T> {
     pub fn new(x: T, y: T, z: T) -> Self {
         HexCubeCoord { x, y, z }
     }
 }
 
+fn abs_diff<T: Num + PartialOrd>(a: T, b: T) -> T {
+    if a <= b {
+        b - a
+    } else {
+        a - b
+    }
+}
+
+impl<T: Num + PartialOrd> HexCubeCoord<T> {
+    /// "Manhattan distance" from `self` to `b`.
+    pub fn distance(self, b: Self) -> T {
+        let x = abs_diff(self.x, b.x);
+        let y = abs_diff(self.y, b.y);
+        let z = abs_diff(self.z, b.z);
+        let two = T::from_str_radix("2", 10)
+            .unwrap_or_else(|_| panic!("no 2 for numeric type"));
+        (x + y + z) / two
+    }
+}
+
 impl<T: Num + Clone> HexCubeCoord<T> {
+    /// Coordinate of hex neighboring `self` in direction `d`.
     pub fn neighbor(self, d: Dirn) -> Result<Self, CubeInvariantError<T>> {
         Ok(HexCoord::try_from(self)?.neighbor(d).into())
     }
@@ -154,6 +177,13 @@ fn test_neighbor_cube() {
         cur = cur.neighbor(d).unwrap();
     }
     assert_eq!(cur, start);
+}
+
+#[test]
+fn test_distance_cube() {
+    let start = HexCubeCoord::new(0.0f32, 0.0f32, 0.0f32);
+    let end = HexCubeCoord::new(-1.0f32, 3.0f32, -2.0f32);
+    assert_eq!(3.0f32, start.distance(end));
 }
 
 impl<T: Num + Clone> From<HexCoord<T>> for HexCubeCoord<T> {
