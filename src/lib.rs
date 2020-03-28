@@ -43,7 +43,7 @@ pub enum Dirn {
 /// Error indicating that specified direction coordinate
 /// is out of range.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct DirnError(usize);
+pub struct DirnError(pub usize);
 
 impl std::fmt::Display for DirnError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -182,7 +182,7 @@ pub struct HexCubeCoord<T> {
 ///
 /// has been violated by the given `HexCubeCoord`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CubeInvariantError<T: Num>(T, T, T);
+pub struct CubeInvariantError<T: Num>(pub T, pub T, pub T);
 
 impl<T: Num + Debug> std::fmt::Display for CubeInvariantError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
