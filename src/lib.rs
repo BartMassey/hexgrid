@@ -3,11 +3,12 @@
 API for working with hex grid coordinates as commonly used in
 game boards.
 
-This code is currently opinionated: it exposes positive y
-(right-handed coordinates) x-z axial coordinates, cube
-coordinates, and flat-topped hexes. Pointy-topped hexes and
-various other coordinate systems should probably be an
-option: patches welcome.
+This code is currently opinionated. The crate exposes
+positive y (right-handed coordinates) x-z axial coordinates
+(as the primary coordinate type), cube coordinates, and
+flat-topped hexes. Pointy-topped hexes and various other
+coordinate systems should probably be an option: patches
+welcome.
 
 This crate is almost entirely derived from the excellent
 [discussion](https://www.redblobgames.com/grids/hexagons/)
@@ -83,25 +84,25 @@ fn num_const<T: Num>(s: &str) -> T {
 /// at its internals.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HexCoord<T> {
-    pub x: T,
-    pub z: T,
+    pub q: T,
+    pub r: T,
 }
 
 impl<T: Num> HexCoord<T> {
-    pub fn new(x: T, z: T) -> Self {
-        HexCoord { x, z }
+    pub fn new(q: T, r: T) -> Self {
+        HexCoord { q, r }
     }
 
     /// Coordinate of hex neighboring `self` in direction `d`.
     pub fn neighbor(self, d: Dirn) -> Self {
         use Dirn::*;
         match d {
-            N => HexCoord::new(self.x, self.z - num::one()),
-            NW => HexCoord::new(self.x - num::one(), self.z),
-            SW => HexCoord::new(self.x - num::one(), self.z + num::one()),
-            S => HexCoord::new(self.x, self.z + num::one()),
-            SE => HexCoord::new(self.x + num::one(), self.z),
-            NE => HexCoord::new(self.x + num::one(), self.z - num::one()),
+            N => HexCoord::new(self.q, self.r - num::one()),
+            NW => HexCoord::new(self.q - num::one(), self.r),
+            SW => HexCoord::new(self.q - num::one(), self.r + num::one()),
+            S => HexCoord::new(self.q, self.r + num::one()),
+            SE => HexCoord::new(self.q + num::one(), self.r),
+            NE => HexCoord::new(self.q + num::one(), self.r - num::one()),
         }
     }
 
@@ -112,8 +113,8 @@ impl<T: Num> HexCoord<T> {
     pub fn cartesian_center<U: Float>(self) -> (U, U)
         where T: Into<U>
     {
-        let q = self.x.into();
-        let r = self.z.into();
+        let q = self.q.into();
+        let r = self.r.into();
         let x = num_const::<U>("1.5") * q;
         let y = num_const::<U>("3.0").sqrt() * (
              num_const::<U>("0.5") * q + r
@@ -277,8 +278,8 @@ fn test_distance_cube() {
 impl<T: Num + Clone> From<HexCoord<T>> for HexCubeCoord<T> {
     fn from(c: HexCoord<T>) -> Self {
         let cl = c.clone();
-        let y = num::zero::<T>() - cl.x - cl.z;
-        HexCubeCoord::new_unchecked(c.x, y, c.z)
+        let y = num::zero::<T>() - cl.q - cl.r;
+        HexCubeCoord::new_unchecked(c.q, y, c.r)
     }
 }
 
