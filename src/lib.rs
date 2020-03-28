@@ -19,7 +19,8 @@ Amit Patel for a definitive and crystal clear exposition.
 use std::convert::TryFrom;
 use std::fmt::Debug;
 
-use num::Num;
+pub use num;
+use num::{Num, Float};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// "Compass" directions on the hex grid.
@@ -71,6 +72,11 @@ impl From<Dirn> for usize {
     }
 }
 
+fn num_const<T: Num>(s: &str) -> T {
+    T::from_str_radix(s, 10)
+        .unwrap_or_else(|_| panic!("no {} for numeric type", s))
+}
+
 /// Hex grid location in axial coordinates, parameterized by
 /// the number type used for coordinates. This is
 /// transparent, but in normal use there is no need to look
@@ -98,6 +104,36 @@ impl<T: Num> HexCoord<T> {
             NE => HexCoord::new(self.x + num::one(), self.z - num::one()),
         }
     }
+
+    /// `(x, y)` Cartesian coordinates of `HexCoord` center,
+    /// for flat-topped pixels in a right-handed coordinate
+    /// system (`x` to the right, `y` up) with hexes of unit
+    /// width.
+    pub fn cartesian_center<U: Float>(self) -> (U, U)
+        where T: Into<U>
+    {
+        let q = self.x.into();
+        let r = self.z.into();
+        let x = num_const::<U>("1.5") * q;
+        let y = num_const::<U>("3.0").sqrt() * (
+             num_const::<U>("0.5") * q + r
+        );
+        (x, y)
+    }
+}
+
+#[test]
+fn test_cartesian_center() {
+    assert_eq!((0.0, 0.0), HexCoord::new(0, 0).cartesian_center());
+
+    let approx_eq = |x0: f64, x: f64| {
+        (x0 - x).abs() < 0.001
+    };
+    
+    assert_eq!((0.0, 0.0), HexCoord::new(0, 0).cartesian_center());
+    let (x, y) = HexCoord::new(1, 2).cartesian_center();
+    assert!(approx_eq(x, 1.5));
+    assert!(approx_eq(y, 2.5 * 3.0.sqrt()));
 }
 
 impl<T: Num + PartialOrd + Clone> HexCoord<T> {
@@ -140,6 +176,20 @@ impl<T: Num> HexCubeCoord<T> {
     }
 }
 
+impl<T: Num> HexCubeCoord<T> {
+    /// `(x, y)` Cartesian coordinates of `HexCubeCoord` center,
+    /// for flat-topped pixels in a right-handed coordinate
+    /// system (`x` to the right, `y` up) with hexes of unit
+    /// width.
+    pub fn cartesian_center<U: Float>(self) -> Result<(U, U), CubeInvariantError<T>>
+        where T: Into<U> + Clone
+    {
+        <HexCoord<T>>::try_from(self.clone())
+            .map(|hex| hex.cartesian_center())
+            .or_else(|_| Err(CubeInvariantError(self)))
+    }
+}
+
 fn abs_diff<T: Num + PartialOrd>(a: T, b: T) -> T {
     if a <= b {
         b - a
@@ -154,9 +204,7 @@ impl<T: Num + PartialOrd> HexCubeCoord<T> {
         let x = abs_diff(self.x, b.x);
         let y = abs_diff(self.y, b.y);
         let z = abs_diff(self.z, b.z);
-        let two = T::from_str_radix("2", 10)
-            .unwrap_or_else(|_| panic!("no 2 for numeric type"));
-        (x + y + z) / two
+        (x + y + z) / num_const("2")
     }
 }
 
