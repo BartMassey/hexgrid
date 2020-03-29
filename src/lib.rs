@@ -182,14 +182,18 @@ pub struct HexCubeCoord<T> {
 ///
 /// has been violated by the given `HexCubeCoord`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CubeInvariantError<T: Num>(pub T, pub T, pub T);
+pub struct CubeInvariantError<T: Num> {
+    pub x: T,
+    pub y: T,
+    pub z: T,
+}
 
 impl<T: Num + Debug> std::fmt::Display for CubeInvariantError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(
             f,
-            "cube invariant violation: x={:?} y={:?} z={:?}",
-            self.0, self.1, self.2,
+            "cube invariant violation: x:{:?}, y:{:?}, z:{:?}",
+            self.x, self.y, self.z,
         )
     }
 }
@@ -210,7 +214,7 @@ impl<T: Num> HexCubeCoord<T> {
         if x.clone() + y.clone() + z.clone() == num::zero() {
             Ok(HexCubeCoord { x, y, z })
         } else {
-            Err(CubeInvariantError(x, y, z))
+            Err(CubeInvariantError { x, y, z })
         }
     }
 
