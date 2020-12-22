@@ -8,14 +8,19 @@ const HEIGHT: usize = 500;
 
 const HEXSCALE: f32 = 0.1;
 
+struct DrawState<'a> {
+    display_size: (usize, usize),
+    color: Source<'a>,
+    style: StrokeStyle,
+    draw_options: DrawOptions
+}
+
 fn draw_hex(
     hex: &HexCoord<i16>,
     dt: &mut DrawTarget,
-    (width, height): (usize, usize),
-    color: &Source,
-    style: &StrokeStyle,
-    draw_options: &DrawOptions
+    state: &'_ DrawState,
 ) {
+    let (width, height) = state.display_size;
     let dim = 0.5 * usize::min(width, height) as f32;
     let scale_point = |(x, y): (f32, f32)| (
         (1.0 + x * HEXSCALE) * dim,
@@ -34,7 +39,19 @@ fn draw_hex(
     }
     pb.close();
     let path = pb.finish();
-    dt.stroke(&path, color, style, &draw_options);
+    dt.stroke(&path, &state.color, &state.style, &state.draw_options);
+}
+
+fn draw_grid (dt: &mut DrawTarget, state: &'_ DrawState) {
+    for q in -1..=1 {
+        for r in -1..=1 {
+            if q == r {
+                continue;
+            }
+            let hex = HexCoord::new(q, r);
+            draw_hex(&hex, dt, state);
+        }
+    }
 }
 
 fn main() {
@@ -48,16 +65,22 @@ fn main() {
     let mut dt = DrawTarget::new(WIDTH as i32, HEIGHT as i32);
     let black = Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0, 0, 0));
     let white = SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0xff, 0xff);
+
     let draw_options = DrawOptions::new();
-    let stroke_style = StrokeStyle {
+    let style = StrokeStyle {
         width: 2.0,
         ..StrokeStyle::default()
     };
+    let state = DrawState {
+        display_size: size,
+        color: black,
+        style,
+        draw_options,
+    };
     
-    let hex: HexCoord<i16> = HexCoord::new(0, 0);
     while window.is_open() && !window.is_key_down(Key::Escape) {
         dt.clear(white);
-        draw_hex(&hex, &mut dt, size, &black, &stroke_style, &draw_options);
+        draw_grid(&mut dt, &state);
         window.update_with_buffer(dt.get_data(), size.0, size.1).unwrap();
     }
 }
