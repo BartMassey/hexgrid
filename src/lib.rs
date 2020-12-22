@@ -3,12 +3,14 @@
 API for working with hex grid coordinates as commonly used in
 game boards.
 
-This code is currently opinionated. The crate exposes
-positive y (right-handed coordinates) x-z axial coordinates
-(as the primary coordinate type), cube coordinates, and
-flat-topped hexes. Pointy-topped hexes and various other
-coordinate systems should probably be an option: patches
-welcome.
+This code is currently opinionated. The crate exposes q-r
+axial coordinates as the primary coordinate type, in a
+"right-handed" (*q* increasing east, *r* increasing north)
+flat-topped coordinate system.  It also provides cube
+coordinates and flat-topped hexes.
+
+Pointy-topped hexes and various other coordinate systems
+should probably be an option: patches welcome.
 
 This crate is almost entirely derived from the excellent
 [discussion](https://www.redblobgames.com/grids/hexagons/)
@@ -24,8 +26,10 @@ pub use num;
 use num::{Float, Num};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// "Compass" directions on the hex grid.
+/// "Compass" directions on the flat-topped hex grid.
 pub enum Dirn {
+    /// Northeast
+    NE,
     /// North
     N,
     /// Northwest
@@ -36,8 +40,6 @@ pub enum Dirn {
     S,
     /// Southeast
     SE,
-    /// Northeast
-    NE,
 }
 
 /// Error indicating that specified direction coordinate
@@ -88,26 +90,50 @@ pub struct HexCoord<T> {
     pub r: T,
 }
 
+// Constant macros for Cartesian coordinate calculations.
+macro_rules! nc {
+    ($numstr:literal, $u:ty) => {num_const::<$u>($numstr)};
+}
+
+macro_rules! half {
+    ($u:ty) => {nc!("0.5", $u)};
+}
+
+macro_rules! quarter {
+    ($u:ty) => {nc!("0.25", $u)};
+}
+
+macro_rules! sqrt3 {
+    ($u:ty) => {nc!("3.0", $u).sqrt()};
+}
+
+macro_rules! sqrt3d2 {
+    ($u:ty) => {half!($u) * sqrt3!($u)};
+}
+
 impl<T: Num> HexCoord<T> {
-    /// Make a hex coordinate.
+    /// Make a hex axial coordinate, in a "right-handed"
+    /// flat-topped coordinate system (`q` increasing east,
+    /// `r` increasing north).
     pub fn new(q: T, r: T) -> Self {
         HexCoord { q, r }
     }
 
-    /// Coordinate of hex neighboring `self` in direction `d`.
+    /// Axial coordinate of hex neighboring `self` in
+    /// direction `d`.
     pub fn neighbor(self, d: Dirn) -> Self {
         use Dirn::*;
         match d {
-            N => HexCoord::new(self.q, self.r - num::one()),
+            NE => {
+                HexCoord::new(self.q + num::one(), self.r + num::one())
+            }
+            N => HexCoord::new(self.q, self.r + num::one()),
             NW => HexCoord::new(self.q - num::one(), self.r),
             SW => {
-                HexCoord::new(self.q - num::one(), self.r + num::one())
+                HexCoord::new(self.q - num::one(), self.r - num::one())
             }
-            S => HexCoord::new(self.q, self.r + num::one()),
+            S => HexCoord::new(self.q, self.r - num::one()),
             SE => HexCoord::new(self.q + num::one(), self.r),
-            NE => {
-                HexCoord::new(self.q + num::one(), self.r - num::one())
-            }
         }
     }
 
@@ -121,31 +147,94 @@ impl<T: Num> HexCoord<T> {
 
     /// `(x, y)` Cartesian coordinates of `HexCoord` center,
     /// for flat-topped pixels in a right-handed coordinate
-    /// system (`x` to the right, `y` up) with hexes of unit
-    /// width.
+    /// system (`x` increasing east, `y` increasing north)
+    /// with hexes of unit width.
     pub fn cartesian_center<U: Float>(self) -> (U, U)
     where
         T: Into<U>,
     {
         let q = self.q.into();
         let r = self.r.into();
-        let x = num_const::<U>("1.5") * q;
-        let y = num_const::<U>("3.0").sqrt()
-            * (num_const::<U>("0.5") * q + r);
+        let x = num_const::<U>("0.75") * q;
+        let y = -sqrt3d2!(U) * (half!(U) * q - r);
         (x, y)
+    }
+
+    /// `(x, y)` Cartesian coordinates of `HexCubeCoord`
+    /// corners, for flat-topped pixels in a right-handed
+    /// coordinate system (`x` increasing east, `y`
+    /// increasing north) with hexes of unit width. Corners
+    /// are given counterclockwise starting with the
+    /// easternmost.
+    pub fn cartesian_corners<U: Float>(self) -> [(U, U);6]
+    where
+        T: Into<U>,
+    {
+        let (x, y) = self.cartesian_center();
+        [
+            (half!(U) + x, y),
+            (quarter!(U) + x, half!(U) * sqrt3d2!(U) + y),
+            (-quarter!(U) + x, half!(U) * sqrt3d2!(U) + y),
+            (-half!(U) + x, y),
+            (-quarter!(U) + x, -half!(U) * sqrt3d2!(U) + y),
+            (quarter!(U) + x, -half!(U) * sqrt3d2!(U) + y),
+        ]
     }
 }
 
-#[test]
-fn test_cartesian_center() {
-    assert_eq!((0.0, 0.0), HexCoord::new(0, 0).cartesian_center());
+#[cfg(test)]
+mod test_cartesian {
+    use crate::*;
+    
+    fn approx_eq(x0: f64, x: f64) -> bool{
+        (x0 - x).abs() < 0.001
+    }
 
-    let approx_eq = |x0: f64, x: f64| (x0 - x).abs() < 0.001;
+    #[test]
+    fn test_cartesian_center() {
+        assert_eq!((0.0, 0.0), HexCoord::new(0, 0).cartesian_center());
 
-    assert_eq!((0.0, 0.0), HexCoord::new(0, 0).cartesian_center());
-    let (x, y) = HexCoord::new(1, 2).cartesian_center();
-    assert!(approx_eq(x, 1.5));
-    assert!(approx_eq(y, 2.5 * 3.0.sqrt()));
+        let (x, y) = HexCoord::new(1, 2).cartesian_center();
+        assert!(approx_eq(x, 0.75));
+        assert!(approx_eq(y, 0.75 * f64::sqrt(3.0)));
+    }
+
+    #[test]
+    fn test_cartesian_corners() {
+        let cy: f64 = 0.25 * 3.0.sqrt();
+
+        let test = move |corners: HexCoord<i32>, tcorners: [(f64, f64); 6]| {
+            let ccs = corners.cartesian_corners();
+            let iter = tcorners.iter().copied();
+            let citer = ccs.iter().copied();
+            for ((x, y), (cx, cy)) in iter.zip(citer) {
+                assert!(approx_eq(x, cx));
+                assert!(approx_eq(y, cy));
+            }
+        };
+
+        let start= HexCoord::new(0, 0);
+        let tcorners = [
+            (0.5, 0.0),
+            (0.25, cy),
+            (-0.25, cy),
+            (-0.5, 0.0),
+            (-0.25, -cy),
+            (0.25, -cy),
+        ];
+        test(start, tcorners);
+
+        let target = start.neighbor(Dirn::NE);
+        let tcorners = [
+            (1.25, cy),
+            (1.0, 2.0 * cy),
+            (0.5, 2.0 * cy),
+            (0.25, cy),
+            (0.5, 0.0),
+            (1.0, 0.0),
+        ];
+        test(target, tcorners);
+    }
 }
 
 #[test]
@@ -250,7 +339,8 @@ impl<T: Num> HexCubeCoord<T> {
         (x + y + z) / num_const("2")
     }
 
-    /// Coordinate of hex neighboring `self` in direction `d`.
+    /// Coordinate of hex neighboring `self` in direction
+    /// `d`. See `HexCoord::neighbor()` for details.
     pub fn neighbor(self, d: Dirn) -> Self
     where
         T: Clone,
@@ -258,15 +348,22 @@ impl<T: Num> HexCubeCoord<T> {
         HexCoord::from(self).neighbor(d).into()
     }
 
-    /// `(x, y)` Cartesian coordinates of `HexCubeCoord` center,
-    /// for flat-topped pixels in a right-handed coordinate
-    /// system (`x` to the right, `y` up) with hexes of unit
-    /// width.
+    /// Cartesian coordinates of `HexCubeCoord` center. See
+    /// `HexCoord::cartesian_center()` for details.
     pub fn cartesian_center<U: Float>(self) -> (U, U)
     where
         T: Into<U>,
     {
         <HexCoord<T>>::from(self).cartesian_center()
+    }
+
+    /// Cartesian coordinates of `HexCubeCoord` corners. See
+    /// `HexCoord::cartesian_corners()` for details.
+    pub fn cartesian_corners<U: Float>(self) -> [(U, U);6]
+    where
+        T: Into<U>,
+    {
+        <HexCoord<T>>::from(self).cartesian_corners()
     }
 }
 
