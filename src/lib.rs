@@ -92,23 +92,33 @@ pub struct HexCoord<T> {
 
 // Constant macros for Cartesian coordinate calculations.
 macro_rules! nc {
-    ($numstr:literal, $u:ty) => {num_const::<$u>($numstr)};
+    ($numstr:literal, $u:ty) => {
+        num_const::<$u>($numstr)
+    };
 }
 
 macro_rules! half {
-    ($u:ty) => {nc!("0.5", $u)};
+    ($u:ty) => {
+        nc!("0.5", $u)
+    };
 }
 
 macro_rules! quarter {
-    ($u:ty) => {nc!("0.25", $u)};
+    ($u:ty) => {
+        nc!("0.25", $u)
+    };
 }
 
 macro_rules! sqrt3 {
-    ($u:ty) => {nc!("3.0", $u).sqrt()};
+    ($u:ty) => {
+        nc!("3.0", $u).sqrt()
+    };
 }
 
 macro_rules! sqrt3d2 {
-    ($u:ty) => {half!($u) * sqrt3!($u)};
+    ($u:ty) => {
+        half!($u) * sqrt3!($u)
+    };
 }
 
 impl<T: Num> HexCoord<T> {
@@ -166,7 +176,7 @@ impl<T: Num> HexCoord<T> {
     /// increasing north) with hexes of unit width. Corners
     /// are given counterclockwise starting with the
     /// easternmost.
-    pub fn cartesian_corners<U: Float>(self) -> [(U, U);6]
+    pub fn cartesian_corners<U: Float>(self) -> [(U, U); 6]
     where
         T: Into<U>,
     {
@@ -185,8 +195,8 @@ impl<T: Num> HexCoord<T> {
 #[cfg(test)]
 mod test_cartesian {
     use crate::*;
-    
-    fn approx_eq(x0: f64, x: f64) -> bool{
+
+    fn approx_eq(x0: f64, x: f64) -> bool {
         (x0 - x).abs() < 0.001
     }
 
@@ -220,7 +230,8 @@ mod test_cartesian {
     fn test_cartesian_corners() {
         let cy: f64 = 0.25 * 3.0.sqrt();
 
-        let test = move |corners: HexCoord<i32>, tcorners: [(f64, f64); 6]| {
+        let test = move |corners: HexCoord<i32>,
+                         tcorners: [(f64, f64); 6]| {
             let ccs = corners.cartesian_corners();
             let iter = tcorners.iter().copied();
             let citer = ccs.iter().copied();
@@ -230,7 +241,7 @@ mod test_cartesian {
             }
         };
 
-        let start= HexCoord::new(0, 0);
+        let start = HexCoord::new(0, 0);
         let tcorners = [
             (0.5, 0.0),
             (0.25, cy),
@@ -376,7 +387,7 @@ impl<T: Num> HexCubeCoord<T> {
 
     /// Cartesian coordinates of `HexCubeCoord` corners. See
     /// `HexCoord::cartesian_corners()` for details.
-    pub fn cartesian_corners<U: Float>(self) -> [(U, U);6]
+    pub fn cartesian_corners<U: Float>(self) -> [(U, U); 6]
     where
         T: Into<U>,
     {
