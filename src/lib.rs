@@ -194,6 +194,23 @@ mod test_cartesian {
     fn test_cartesian_center() {
         assert_eq!((0.0, 0.0), HexCoord::new(0, 0).cartesian_center());
 
+        let ys = 0.25 * f64::sqrt(3.0);
+        let yl = 2.0 * ys;
+        let xs = 0.75f64;
+        let centers = [
+            ((1, 1), (xs, ys)),
+            ((0, 1), (0.0, yl)),
+            ((-1, 0), (-xs, ys)),
+            ((-1, -1), (-xs, -ys)),
+            ((0, -1), (0.0, -yl)),
+            ((1, 0), (xs, -ys)),
+        ];
+        for &((q, r), (xt, yt)) in &centers {
+            let (x, y) = HexCoord::new(q, r).cartesian_center();
+            assert!(approx_eq(x, xt));
+            assert!(approx_eq(y, yt));
+        }
+
         let (x, y) = HexCoord::new(1, 2).cartesian_center();
         assert!(approx_eq(x, 0.75));
         assert!(approx_eq(y, 0.75 * f64::sqrt(3.0)));
