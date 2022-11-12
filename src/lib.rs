@@ -25,6 +25,8 @@ use std::fmt::Debug;
 pub use num;
 use num::{Float, Num};
 
+use thiserror::Error;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// "Compass" directions on the flat-topped hex grid.
 pub enum Direction {
@@ -44,16 +46,15 @@ pub enum Direction {
 
 /// Error indicating that specified direction coordinate
 /// is out of range.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Error)]
+#[error("direction error: {}", .0)]
 pub struct DirectionError(pub usize);
 
-impl std::fmt::Display for DirectionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(f, "direction error: {}", self.0)
-    }
+#[test]
+fn test_direction_error() {
+    let err = Direction::try_from(7).err().unwrap();
+    assert_eq!("direction error: 7", err.to_string(),);
 }
-
-impl std::error::Error for DirectionError {}
 
 impl TryFrom<usize> for Direction {
     type Error = DirectionError;
@@ -298,24 +299,27 @@ pub struct HexCubeCoord<T> {
 /// > `x + y + z == 0`
 ///
 /// has been violated by the given `HexCubeCoord`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CubeInvariantError<T: Num> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Error)]
+#[error(
+    "cube invariant violation: x:{:?}, y:{:?}, z:{:?}",
+    self.x,
+    self.y,
+    self.z,
+)]
+pub struct CubeInvariantError<T: Num + std::fmt::Debug> {
     pub x: T,
     pub y: T,
     pub z: T,
 }
 
-impl<T: Num + Debug> std::fmt::Display for CubeInvariantError<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(
-            f,
-            "cube invariant violation: x:{:?}, y:{:?}, z:{:?}",
-            self.x, self.y, self.z,
-        )
-    }
+#[test]
+fn test_cube_invariant_error() {
+    let err = HexCubeCoord::new(1i8, 2i8, 3i8).err().unwrap();
+    assert_eq!(
+        "cube invariant violation: x:1, y:2, z:3",
+        err.to_string(),
+    );
 }
-
-impl<T: Num + Debug> std::error::Error for CubeInvariantError<T> {}
 
 impl<T: Num> HexCubeCoord<T> {
     /// Make a cube coordinate, checking that the invariant
