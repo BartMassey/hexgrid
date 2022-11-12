@@ -15,4 +15,3 @@ This crate is almost entirely derived from the excellent
 [discussion](https://www.redblobgames.com/grids/hexagons/)
 of hex grids at the Red Blob Games website. Many thanks to
 Amit Patel for a definitive and crystal clear exposition.
-

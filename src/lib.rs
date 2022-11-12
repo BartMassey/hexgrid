@@ -27,7 +27,7 @@ use num::{Float, Num};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// "Compass" directions on the flat-topped hex grid.
-pub enum Dirn {
+pub enum Direction {
     /// Northeast
     NE,
     /// North
@@ -45,30 +45,30 @@ pub enum Dirn {
 /// Error indicating that specified direction coordinate
 /// is out of range.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct DirnError(pub usize);
+pub struct DirectionError(pub usize);
 
-impl std::fmt::Display for DirnError {
+impl std::fmt::Display for DirectionError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(f, "direction error: {}", self.0)
     }
 }
 
-impl std::error::Error for DirnError {}
+impl std::error::Error for DirectionError {}
 
-impl TryFrom<usize> for Dirn {
-    type Error = DirnError;
+impl TryFrom<usize> for Direction {
+    type Error = DirectionError;
     fn try_from(d: usize) -> Result<Self, Self::Error> {
-        use Dirn::*;
-        const DIRNS: [Dirn; 6] = [N, NW, SW, S, SE, NE];
+        use Direction::*;
+        const DIRNS: [Direction; 6] = [N, NW, SW, S, SE, NE];
         if d >= DIRNS.len() {
-            return Err(DirnError(d));
+            return Err(DirectionError(d));
         }
         Ok(DIRNS[d])
     }
 }
 
-impl From<Dirn> for usize {
-    fn from(d: Dirn) -> usize {
+impl From<Direction> for usize {
+    fn from(d: Direction) -> usize {
         d as usize
     }
 }
@@ -131,8 +131,8 @@ impl<T: Num> HexCoord<T> {
 
     /// Axial coordinate of hex neighboring `self` in
     /// direction `d`.
-    pub fn neighbor(self, d: Dirn) -> Self {
-        use Dirn::*;
+    pub fn neighbor(self, d: Direction) -> Self {
+        use Direction::*;
         match d {
             NE => {
                 HexCoord::new(self.q + num::one(), self.r + num::one())
@@ -252,7 +252,7 @@ mod test_cartesian {
         ];
         test(start, tcorners);
 
-        let target = start.neighbor(Dirn::NE);
+        let target = start.neighbor(Direction::NE);
         let tcorners = [
             (1.25, cy),
             (1.0, 2.0 * cy),
@@ -267,7 +267,7 @@ mod test_cartesian {
 
 #[test]
 fn test_neighbor_axial() {
-    use Dirn::*;
+    use Direction::*;
     let dirns = vec![N, SW, S, SE, NE, N, NW, S];
     let start = HexCoord::new(0i8, 0i8);
     let mut cur = start;
@@ -369,7 +369,7 @@ impl<T: Num> HexCubeCoord<T> {
 
     /// Coordinate of hex neighboring `self` in direction
     /// `d`. See `HexCoord::neighbor()` for details.
-    pub fn neighbor(self, d: Dirn) -> Self
+    pub fn neighbor(self, d: Direction) -> Self
     where
         T: Clone,
     {
@@ -397,7 +397,7 @@ impl<T: Num> HexCubeCoord<T> {
 
 #[test]
 fn test_neighbor_cube() {
-    use Dirn::*;
+    use Direction::*;
     let dirns = vec![N, SW, S, SE, NE, N, NW, S];
     let start = HexCubeCoord::new_unchecked(0i8, 0i8, 0i8);
     let mut cur = start;
